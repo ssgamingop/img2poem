@@ -11,7 +11,8 @@ import { PoemDisplay } from '@/components/poem-display';
 import { PoemEditor } from '@/components/poem-editor';
 import { useToast } from "@/hooks/use-toast";
 import { generatePoem } from '@/ai/flows/generate-poem';
-import { Save, Edit3, Feather } from 'lucide-react';
+import { Save, Feather } from 'lucide-react';
+import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 // Helper function to convert File to Data URI
 const fileToDataUri = (file: File): Promise<string> => {
@@ -177,27 +178,29 @@ export default function PhotoPoetPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center p-4 sm:p-8 font-body">
-      <header className="mb-10 text-center">
-        <h1 className="text-5xl sm:text-6xl font-headline text-primary-foreground bg-primary py-3 px-6 rounded-lg shadow-xl inline-flex items-center">
-          <Feather className="mr-3 h-10 w-10" /> Photo Poet
-        </h1>
-        <p className="text-muted-foreground mt-4 text-lg">Transform your photos into beautiful poetry.</p>
+      <header className="mb-10 w-full max-w-5xl relative">
+        <div className="text-center">
+            <h1 className="text-5xl sm:text-6xl font-headline text-primary-foreground bg-primary py-3 px-6 rounded-lg shadow-xl inline-flex items-center">
+            <Feather className="mr-3 h-10 w-10" /> Photo Poet
+            </h1>
+            <p className="text-muted-foreground mt-4 text-lg">Transform your photos into beautiful poetry.</p>
+        </div>
+        <div className="absolute top-0 right-0 pt-2 pr-2 sm:pt-0 sm:pr-0">
+            <ThemeToggleButton />
+        </div>
       </header>
 
       <main className="w-full max-w-5xl space-y-8">
         <ImageInput onImageSubmit={handleImageSubmit} isLoading={isLoadingPoem} />
 
-        {/* Display area for image and poem/editor */}
         {(imageUrl || isLoadingPoem) && (
           <Card className="shadow-xl animate-in fade-in duration-700">
             <CardContent className="p-6 grid md:grid-cols-2 gap-8 items-start">
-              {/* Image Display */}
               <div className="relative aspect-[4/3] w-full max-w-lg mx-auto md:mx-0 rounded-lg overflow-hidden shadow-lg border-2 border-primary/50">
                 {isLoadingPoem && !imageUrl && <Skeleton className="h-full w-full" />}
                 {imageUrl && <Image src={imageUrl} alt="Uploaded visual inspiration" layout="fill" objectFit="cover" data-ai-hint="inspiration abstract" />}
               </div>
               
-              {/* Poem Display/Editor/Skeleton */}
               <div className="space-y-4 min-h-[200px] flex flex-col justify-center">
                 {isLoadingPoem ? (
                   <div className="space-y-3 p-4">
@@ -221,7 +224,6 @@ export default function PhotoPoetPage() {
                     />
                   )
                 ) : imageUrl && !isLoadingPoem ? (
-                  // Case where image is loaded, not loading poem, but no poem (e.g. AI error)
                   <p className="text-muted-foreground text-center p-4">Could not generate a poem for this image. Please try another one.</p>
                 ) : null}
               </div>
