@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { generatePoem } from '@/ai/flows/generate-poem';
 import { Save, Feather } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 // Helper function to convert File to Data URI
 const fileToDataUri = (file: File): Promise<string> => {
@@ -55,6 +57,7 @@ export default function PhotoPoetPage() {
   const [editedPoem, setEditedPoem] = useState<string>("");
   const [isLoadingPoem, setIsLoadingPoem] = useState<boolean>(false);
   const [isEditingPoem, setIsEditingPoem] = useState<boolean>(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const { toast } = useToast();
 
   // Effect for cleaning up Object URLs
@@ -122,7 +125,7 @@ export default function PhotoPoetPage() {
           return;
       }
 
-      const result = await generatePoem({ photoDataUri: dataUri });
+      const result = await generatePoem({ photoDataUri: dataUri, language: selectedLanguage });
       setPoem(result.poem);
       setEditedPoem(result.poem);
       toast({ title: "Poem Generated!", description: "Your poetic masterpiece is ready.", className: "bg-primary text-primary-foreground" });
@@ -139,16 +142,16 @@ export default function PhotoPoetPage() {
     } finally {
       setIsLoadingPoem(false);
     }
-  }, [toast, imageUrl]); // Include imageUrl in dependencies because of its use in cleanup logic
+  }, [toast, imageUrl, selectedLanguage]); 
 
   const handleSaveEditedPoem = () => {
-    setPoem(editedPoem); // Commit edited changes to the main poem state
+    setPoem(editedPoem); 
     setIsEditingPoem(false);
     toast({ title: "Changes Saved", description: "Your poem has been updated.", className: "bg-accent text-accent-foreground" });
   };
 
   const handleCancelEdit = () => {
-    setEditedPoem(poem || ""); // Revert to original poem
+    setEditedPoem(poem || ""); 
     setIsEditingPoem(false);
   };
 
@@ -162,8 +165,7 @@ export default function PhotoPoetPage() {
   const handleSavePoemToDevice = () => {
     if (!poem || !imageUrl) return;
     
-    // Create content to save (e.g., simple text file with poem and image source)
-    const content = `Photo Poet Creation\n\nImage Source: ${imageUrl}\n\nPoem:\n${editedPoem || poem}\n`;
+    const content = `Photo Poet Creation\n\nImage Source: ${imageUrl}\n\nLanguage: ${selectedLanguage === 'en' ? 'English' : 'Hindi'}\n\nPoem:\n${editedPoem || poem}\n`;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -173,7 +175,7 @@ export default function PhotoPoetPage() {
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
 
-    toast({ title: "Poem Saved!", description: "Your poem has been saved as a .txt file (simulated).", className: "bg-primary text-primary-foreground" });
+    toast({ title: "Poem Saved!", description: "Your poem has been saved as a .txt file.", className: "bg-primary text-primary-foreground" });
   };
 
   return (
@@ -192,6 +194,21 @@ export default function PhotoPoetPage() {
 
       <main className="w-full max-w-5xl space-y-8">
         <ImageInput onImageSubmit={handleImageSubmit} isLoading={isLoadingPoem} />
+
+        <div className="w-full max-w-md mx-auto p-6 bg-card rounded-lg shadow-lg border border-border">
+          <Label htmlFor="language-select" className="text-lg font-medium text-foreground mb-2 block">
+            Choose Poem Language
+          </Label>
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isLoadingPoem}>
+            <SelectTrigger id="language-select" className="w-full text-base">
+              <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="hi">हिन्दी (Hindi)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {(imageUrl || isLoadingPoem) && (
           <Card className="shadow-xl animate-in fade-in duration-700">
@@ -220,6 +237,7 @@ export default function PhotoPoetPage() {
                   ) : (
                     <PoemDisplay
                       poem={poem}
+                      language={selectedLanguage}
                       onEdit={handleStartEdit}
                     />
                   )
@@ -242,3 +260,4 @@ export default function PhotoPoetPage() {
     </div>
   );
 }
+
