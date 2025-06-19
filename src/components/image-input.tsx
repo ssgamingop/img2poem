@@ -80,7 +80,7 @@ export function ImageInput({ onImageSubmit, isLoading }: ImageInputProps) {
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange}
-                className="file:mr-3 file:px-4 file:py-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 focus-visible:file:ring-2 focus-visible:file:ring-ring focus-visible:file:ring-offset-2"
+                className="file:mr-3 file:px-4 file:py-1 file:my-0 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                 aria-describedby="file-upload-description"
                 disabled={isLoading}
               />
