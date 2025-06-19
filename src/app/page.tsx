@@ -257,6 +257,11 @@ export default function PhotoPoetPage() {
           </Card>
         )}
       </main>
+      <footer className="w-full max-w-5xl mt-12 py-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Created by Somyajeet Singh
+        </p>
+      </footer>
     </div>
   );
 }
