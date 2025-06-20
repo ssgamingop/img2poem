@@ -11,12 +11,12 @@ import { PoemDisplay } from '@/components/poem-display';
 import { PoemEditor } from '@/components/poem-editor';
 import { useToast } from "@/hooks/use-toast";
 import { generatePoem } from '@/ai/flows/generate-poem';
+import { refineGeneratedPoem } from '@/ai/flows/improve-poem'; // Import the refine flow
 import { Save, Feather } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
-// Helper function to convert File to Data URI
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -26,13 +26,10 @@ const fileToDataUri = (file: File): Promise<string> => {
   });
 };
 
-// Helper function to convert URL to Data URI
 async function urlToDataUri(url: string): Promise<string> {
-  // Basic client-side check before fetching
   if (!url.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|bmp|tiff|svg)/i)) {
       throw new Error("URL does not appear to be a direct image link.");
   }
-  // Note: This fetch can be blocked by CORS. A backend proxy would be more robust.
   const response = await fetch(url); 
   if (!response.ok) {
     throw new Error(`Failed to fetch image from URL: ${response.status} ${response.statusText}`);
@@ -52,15 +49,15 @@ async function urlToDataUri(url: string): Promise<string> {
 
 
 export default function PhotoPoetPage() {
-  const [imageUrl, setImageUrl] = useState<string | null>(null); // For display
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [poem, setPoem] = useState<string | null>(null);
   const [editedPoem, setEditedPoem] = useState<string>("");
   const [isLoadingPoem, setIsLoadingPoem] = useState<boolean>(false);
+  const [isRefiningPoem, setIsRefiningPoem] = useState<boolean>(false); // New state for refinement
   const [isEditingPoem, setIsEditingPoem] = useState<boolean>(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const { toast } = useToast();
 
-  // Effect for cleaning up Object URLs
   useEffect(() => {
     let objectUrlToRevoke: string | null = null;
     if (imageUrl && imageUrl.startsWith('blob:')) {
@@ -79,12 +76,10 @@ export default function PhotoPoetPage() {
     setEditedPoem("");
     setIsEditingPoem(false);
     
-    // Revoke previous object URL if imageUrl is already set and is a blob URL
     if (imageUrl && imageUrl.startsWith('blob:')) {
         URL.revokeObjectURL(imageUrl);
     }
     setImageUrl(null);
-
 
     let dataUri: string | null = null;
     let displayUrl: string | null = null;
@@ -93,9 +88,9 @@ export default function PhotoPoetPage() {
       if (input.type === 'file') {
         displayUrl = URL.createObjectURL(input.value);
         dataUri = await fileToDataUri(input.value);
-      } else { // type === 'url'
+      } else {
         try {
-          new URL(input.value); // Basic validation
+          new URL(input.value);
         } catch (e) {
           toast({ title: "Invalid URL", description: "Please enter a valid image URL.", variant: "destructive" });
           setIsLoadingPoem(false);
@@ -111,7 +106,7 @@ export default function PhotoPoetPage() {
                 variant: "destructive",
                 duration: 7000,
             });
-            setImageUrl(displayUrl); // Show the image even if AI part fails
+            setImageUrl(displayUrl);
             setIsLoadingPoem(false);
             return;
         }
@@ -137,12 +132,47 @@ export default function PhotoPoetPage() {
         description: error.message || "Failed to generate poem. Please try again.",
         variant: "destructive",
       });
-      // If image processing failed, but we have a display URL, show it.
       if (displayUrl && !imageUrl) setImageUrl(displayUrl);
     } finally {
       setIsLoadingPoem(false);
     }
   }, [toast, imageUrl, selectedLanguage]); 
+
+  const handleRefinePoem = async () => {
+    if (!poem && !editedPoem) {
+      toast({ title: "No Poem to Refine", description: "Please generate or write a poem first.", variant: "destructive" });
+      return;
+    }
+    setIsRefiningPoem(true);
+    try {
+      // Use the editedPoem if it exists and is different from the original poem, otherwise use the original poem.
+      // Or, more simply, always use editedPoem as it's the source of truth if editing has started.
+      const poemToRefine = isEditingPoem ? editedPoem : poem || "";
+      if (!poemToRefine) {
+         toast({ title: "Error", description: "Cannot refine an empty poem.", variant: "destructive" });
+         setIsRefiningPoem(false);
+         return;
+      }
+
+      const result = await refineGeneratedPoem({ 
+        poem: poemToRefine, 
+        feedback: "Make this poem more vivid, emotional, and imaginative. Ensure it flows well and has a strong impact." 
+      });
+      setPoem(result.refinedPoem);
+      setEditedPoem(result.refinedPoem); // Update editedPoem as well
+      setIsEditingPoem(false); // Exit editing mode if it was active
+      toast({ title: "Poem Refined!", description: "The AI has enhanced your poem.", className: "bg-primary text-primary-foreground" });
+    } catch (error: any) {
+      console.error("Error refining poem:", error);
+      toast({
+        title: "AI Refinement Error",
+        description: error.message || "Failed to refine poem. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefiningPoem(false);
+    }
+  };
 
   const handleSaveEditedPoem = () => {
     setPoem(editedPoem); 
@@ -157,15 +187,18 @@ export default function PhotoPoetPage() {
 
   const handleStartEdit = () => {
     if (poem) {
-      setEditedPoem(poem);
+      setEditedPoem(poem); // Ensure editor starts with the current poem
       setIsEditingPoem(true);
     }
   };
   
   const handleSavePoemToDevice = () => {
-    if (!poem || !imageUrl) return;
+    if (!poem && !editedPoem) return;
     
-    const content = `Photo Poet Creation\n\nImage Source: ${imageUrl}\n\nLanguage: ${selectedLanguage === 'en' ? 'English' : 'Hindi'}\n\nPoem:\n${editedPoem || poem}\n`;
+    const poemToSave = isEditingPoem ? editedPoem : poem;
+    if (!poemToSave) return;
+
+    const content = `Photo Poet Creation\n\nImage Source: ${imageUrl || 'N/A'}\n\nLanguage: ${selectedLanguage === 'en' ? 'English' : 'Hindi'}\n\nPoem:\n${poemToSave}\n`;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -193,13 +226,13 @@ export default function PhotoPoetPage() {
       </header>
 
       <main className="w-full max-w-5xl space-y-8">
-        <ImageInput onImageSubmit={handleImageSubmit} isLoading={isLoadingPoem} />
+        <ImageInput onImageSubmit={handleImageSubmit} isLoading={isLoadingPoem || isRefiningPoem} />
 
         <div className="w-full max-w-md mx-auto p-6 bg-card rounded-lg shadow-lg border border-border">
           <Label htmlFor="language-select" className="text-lg font-medium text-foreground mb-2 block">
             Choose Poem Language
           </Label>
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isLoadingPoem}>
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isLoadingPoem || isRefiningPoem}>
             <SelectTrigger id="language-select" className="w-full text-base">
               <SelectValue placeholder="Select language" />
             </SelectTrigger>
@@ -210,7 +243,7 @@ export default function PhotoPoetPage() {
           </Select>
         </div>
 
-        {(imageUrl || isLoadingPoem) && (
+        {(imageUrl || isLoadingPoem || isRefiningPoem) && (
           <Card className="shadow-xl animate-in fade-in duration-700">
             <CardContent className="p-6 grid md:grid-cols-2 gap-8 items-start">
               <div className="relative aspect-[4/3] w-full max-w-lg mx-auto md:mx-0 rounded-lg overflow-hidden shadow-lg border-2 border-primary/50">
@@ -221,6 +254,14 @@ export default function PhotoPoetPage() {
               <div className="space-y-4 min-h-[200px] flex flex-col justify-center">
                 {isLoadingPoem ? (
                   <div className="space-y-3 p-4">
+                    <Skeleton className="h-8 w-3/4 rounded-md" />
+                    <Skeleton className="h-6 w-full rounded-md" />
+                    <Skeleton className="h-6 w-full rounded-md" />
+                    <Skeleton className="h-6 w-5/6 rounded-md" />
+                  </div>
+                ) : isRefiningPoem && poem ? ( // Show skeleton or current poem while refining
+                  <div className="space-y-3 p-4">
+                     <p className="text-center text-muted-foreground">Refining your poem...</p>
                     <Skeleton className="h-8 w-3/4 rounded-md" />
                     <Skeleton className="h-6 w-full rounded-md" />
                     <Skeleton className="h-6 w-full rounded-md" />
@@ -239,17 +280,25 @@ export default function PhotoPoetPage() {
                       poem={poem}
                       language={selectedLanguage}
                       onEdit={handleStartEdit}
+                      onRefine={handleRefinePoem}
+                      isRefining={isRefiningPoem}
                     />
                   )
-                ) : imageUrl && !isLoadingPoem ? (
+                ) : imageUrl && !isLoadingPoem && !isRefiningPoem ? (
                   <p className="text-muted-foreground text-center p-4">Could not generate a poem for this image. Please try another one.</p>
                 ) : null}
               </div>
             </CardContent>
             
-            {poem && !isLoadingPoem && (
+            {(poem || editedPoem) && !isLoadingPoem && !isRefiningPoem && (
               <CardFooter className="p-6 justify-end border-t border-border">
-                <Button onClick={handleSavePoemToDevice} variant="default" size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-base">
+                <Button 
+                  onClick={handleSavePoemToDevice} 
+                  variant="default" 
+                  size="lg" 
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-base"
+                  disabled={isEditingPoem} // Disable if actively editing, encourage save first
+                >
                   <Save className="mr-2 h-5 w-5" /> Save Poem to Device
                 </Button>
               </CardFooter>
@@ -265,4 +314,3 @@ export default function PhotoPoetPage() {
     </div>
   );
 }
-
