@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -51,8 +52,6 @@ const refineGeneratedPoemFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return {
-      refinedPoem: output!,
-    };
+    return output!; // Corrected: output from prompt already matches the schema
   }
 );
