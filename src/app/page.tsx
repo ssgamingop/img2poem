@@ -308,7 +308,7 @@ export default function PhotoPoetPage() {
       </main>
       <footer className="w-full max-w-5xl mt-12 py-6 text-center">
         <p className="text-sm text-muted-foreground">
-          Created by Somyajeet Singh
+          Created by Somyajeet Singh , Bhola Is Noob
         </p>
       </footer>
     </div>
